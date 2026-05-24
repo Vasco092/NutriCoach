@@ -17,18 +17,20 @@ const fontSans = "'Syne', 'Helvetica Neue', sans-serif";
 // ─── CLAUDE API ───────────────────────────────────────────────────────────────
 async function claude(messages, system, maxTokens = 1000) {
   try {
+    const key = import.meta.env.VITE_GEMINI_KEY;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const prompt = (system ? system + "\n\n" : "") + messages.map(m => m.content).join("\n");
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, system, messages }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`API ${res.status}`);
     const d = await res.json();
-    return d.content?.[0]?.text || "";
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
   } catch (e) {
     if (e.name === "AbortError") return "__TIMEOUT__";
     return "__ERROR__";
